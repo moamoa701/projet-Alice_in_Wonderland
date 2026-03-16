@@ -1,1 +1,1 @@
-"Yop tout le monde c'est Gotaga"
+"Yop tout le monde c'est Gotaga "

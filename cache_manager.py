@@ -1,60 +1,63 @@
 import os
 import json
 import hashlib
-from functools import wraps
 
-#stock .cache 
+#attribution de .cache 
 CACHE_DIR = ".cache"
 
 def setup_cache():
     """
-    Création du dossier de cache s'il n'existe pas
+    Création du dossier .cache s'il n'existe pas.
 
     """
-
     if not os.path.exists(CACHE_DIR):
         os.makedirs(CACHE_DIR)
 
-def cache_result(func):
+def get_cache_path(action, book_id):
     """
-    Sauvegarde les resultats sur le disque, si une fonction a besoin de lire
-    certains resultats deja calculée alors il check direct dans le cache sans faire recalculer
+    Fabrication du chemin du fichier de sauvegarde.
 
     """
 
-    @wraps(func) #conservation de l'identité de la fonction
-    def wrapper(*args, **kwargs): #adaptation a toutes les fonctions 
-        setup_cache() #verification de l'éxistence du dossier cache et le crée si il nexiste pas
-        
-        #gestions des sauvegardes dans le .cache
-        #key_string stock la fonction qui est utilisé et sur quel livre
-        key_string = f"{func.__name__}_{args}_{kwargs}"
-        #cache_key = utilise le resultat de keystring hashé pour nommé le fichier 
-        cache_key = hashlib.md5(key_string.encode('utf-8')).hexdigest()
-        #range les fichiers convertis en .json dans le .cache
-        cache_file = os.path.join(CACHE_DIR, f"{cache_key}.json")
+    #création du nom (action + livre) 
+    tag = f"{action}_{book_id}"
+    
+    #hashage de l'étiquette pour avoir un nom de fichier propre (pas de '/')
+    safe_name = hashlib.md5(tag.encode('utf-8')).hexdigest()
+    
+    #on retourne le chemin complet 
+    return os.path.join(CACHE_DIR, f"{safe_name}.json")
 
-        #vérification de l'existence du fichier
-        if os.path.exists(cache_file):
-            try:
-                with open(cache_file, 'r', encoding='utf-8') as f:
-                    return json.load(f)
+def load_cache(action, book_id):
+    """
+    Vérifie si le calcul a déjà été réalisé et le renvoie, et renvoie rien si il n'a rien trouvée
+  
+    """
 
-            #gestion des erreurs        
-            except (json.JSONDecodeError, IOError):
-                pass
-
-        #si cache nexiste pas, on lance la fonction de l'user
-        result = func(*args, **kwargs)
-
-        #on sauvegarde et converti le résultat en .json pour la prochaine fois
+    filepath = get_cache_path(action, book_id)
+    
+    if os.path.exists(filepath):
         try:
-            with open(cache_file, 'w', encoding='utf-8') as f:
-                #converti en .json 
-                json.dump(result, f, ensure_ascii=False, indent=4)
+            with open(filepath, 'r', encoding='utf-8') as f:
+                #on retourne le fichier trouvé
+                return json.load(f) 
         #gestion des erreurs        
-        except IOError as e:
-            print(f"Erreur lors de la sauvegarde du cache : {e}")
+        except (json.JSONDecodeError, IOError):
+            pass 
+    #on retourne rien si on a pas trouvé le fichier        
+    return None
 
-        return result
-    return wrapper
+def save_cache(action, book_id, data):
+    """
+    Sauvegarde le résultat dans un fichier JSON pour la prochaine fois.
+    """
+    #on crée le fichier .cache si il existe pas 
+    setup_cache() 
+    filepath = get_cache_path(action, book_id)
+    
+    try:
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+            #gestion des erreurs
+    except IOError as e:
+        print(f"Erreur lors de la sauvegarde du cache : {e}")

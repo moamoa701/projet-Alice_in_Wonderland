@@ -32,7 +32,7 @@ def fetch_book(book_id):
     """
     
     #on vérifie dans le catch
-    cached_text = load_cache("raw_text", book_id)
+    cached_text = load_cache("my_book", book_id)
     if cached_text:
         print(f"Livre {book_id} récupéré depuis le cache!")
         return cached_text
@@ -45,15 +45,15 @@ def fetch_book(book_id):
     
     response = requests.get(url)
     
-    #si le site repond code 200, on stock le text dans raw_text
+    #si le site repond code 200, on stock le text dans my_book
     if response.status_code == 200:
-        raw_text = response.text
+        my_book = response.text
         
         #nettoyage du texte 
-        clean_text = clean_gutenberg_text(raw_text)
+        clean_text = clean_gutenberg_text(my_book)
         
         #sauvegarde dans le cache
-        save_cache("raw_text", book_id, clean_text)
+        save_cache("my_book", book_id, clean_text)
         
         return clean_text
     else:

@@ -60,3 +60,6 @@ def fetch_book(book_id):
         print(f"Erreur : Impossible de trouver le livre avec l'ID {book_id}")
 
         return None
+
+
+        

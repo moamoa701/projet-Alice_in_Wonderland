@@ -1,4 +1,5 @@
 import requests
+import argparse
 #nos fonctions:
 from cache_manager import load_cache, save_cache 
 
@@ -60,3 +61,26 @@ def fetch_book(book_id):
         print(f"Erreur : Impossible de trouver le livre avec l'ID {book_id}")
 
         return None
+
+def main():
+    """
+    Mise en place du CLI :
+    -lit les arguments utilisateur
+    -appelle les fonctions correspondantes
+    -affiche les résultats
+    """
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--lexdiv", type=int)
+
+    args = parser.parse_args()
+
+    if args.lexdiv:
+        text = fetch_book(args.lexdiv)
+        print(text)
+
+        
+#permet d'exécuter la fonction main() uniquement si le fichier est lancé directement
+if __name__ == "__main__":
+    main()

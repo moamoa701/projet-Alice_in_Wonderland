@@ -16,7 +16,7 @@ def setup_cache():
 def get_cache_path(action, book_id):
     """
     Fabrication du chemin du fichier de sauvegarde.
-
+    
     """
 
     #création du nom (action + livre) 

@@ -2,6 +2,7 @@ import os
 import json
 import hashlib
 
+
 #attribution de .cache 
 CACHE_DIR = ".cache"
 

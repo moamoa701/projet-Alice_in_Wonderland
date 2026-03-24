@@ -52,7 +52,7 @@ def fetch_book(book_id):
     """
     
     #on vérifie dans le catch
-    cached_text = load_cache("my_book", book_id)
+    cached_text = load_cache("raw_text", book_id)
     if cached_text:
         print(f"Livre {book_id} récupéré depuis le cache!")
         return cached_text
@@ -65,24 +65,21 @@ def fetch_book(book_id):
     
     response = requests.get(url)
     
-    #si le site repond code 200, on stock le text dans my_book
+    #si le site repond code 200, on stock le text dans raw_text
     if response.status_code == 200:
-        my_book = response.text
+        raw_text = response.text
         
         #nettoyage du texte 
-        clean_text = clean_gutenberg_text(my_book)
+        clean_text = clean_gutenberg_text(raw_text)
         
         #sauvegarde dans le cache
-        save_cache("my_book", book_id, clean_text)
+        save_cache("raw_text", book_id, clean_text)
         
         return clean_text
     else:
         print(f"Erreur : Impossible de trouver le livre avec l'ID {book_id}")
 
         return None
-
-
-        
 
 def main():
     """
@@ -144,3 +141,52 @@ def lexical_diversity(book_id, text):
     save_cache("lexdiv", book_id, result)
     return result
 
+
+def summarize_book(book_id, text, n_sentences=5):
+    """
+    Returns a short extractive summary of the book.
+    Uses sentence scoring based on word frequency.
+    """
+    cached = load_cache("summary", book_id)
+    if cached:
+        return cached
+    #Sentence segmentation
+    sentences = re.split(r'(?<=[.!?]) +', text)
+
+    #Avoid extremely long texts (performance)
+    sentences = sentences[:2000]
+
+    #Tokenization
+    words = tokenize(text)
+
+    #Compute word frequencies
+    freq = Counter(words)
+
+    # Normalize frequencies
+    max_freq = max(freq.values()) if freq else 1
+    for word in freq:
+        freq[word] /= max_freq
+
+    #Score sentences
+    sentence_scores = defaultdict(float)
+
+    for sent in sentences:
+        sent_words = tokenize(sent)
+        # Ignore very short or very long sentences
+        if len(sent_words) < 5 or len(sent_words) > 40:
+            continue
+        for word in sent_words:
+            if word in freq:
+                sentence_scores[sent] += freq[word]
+
+    #Select top sentences
+    best_sentences = sorted(sentence_scores, key=sentence_scores.get, reverse=True)[:n_sentences]
+
+    # Keep original order
+    best_sentences = sorted(best_sentences, key=lambda s: sentences.index(s))
+
+    summary = " ".join(best_sentences)
+
+    save_cache("summary", book_id, summary)
+
+    return summary

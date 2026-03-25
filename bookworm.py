@@ -4,6 +4,10 @@ import math
 import argparse
 from collections import Counter, defaultdict
 from cache_manager import load_cache, save_cache
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.decomposition import LatentDirichletAllocation
+import nltk
+from nltk.corpus import stopwords
 
 
 #url = "https://www.gutenberg.org/"
@@ -81,36 +85,6 @@ def fetch_book(book_id):
 
         return None
 
-def main():
-    """
-    Mise en place du CLI :
-    -lit les arguments utilisateur
-    -appelle les fonctions correspondantes
-    -affiche les résultats
-    """
-
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument("--lexdiv", type=int)
-
-    args = parser.parse_args()
-
-    if args.lexdiv:
-        text = fetch_book(args.lexdiv)
-        print(text)
-
-        
-#permet d'exécuter la fonction main() uniquement si le fichier est lancé directement
-if __name__ == "__main__":
-    main()
-    return "\n".join(clean_text)
-
-def tokenize(text):
-    text = text.lower()
-    words = re.findall(r"\b[a-z']+\b", text)
-    return words
-
-
 # Lexical diversity
 
 def lexical_diversity(book_id, text):
@@ -141,3 +115,53 @@ def lexical_diversity(book_id, text):
     save_cache("lexdiv", book_id, result)
     return result
 
+def tokenize(text):
+    text = text.lower()
+    words = re.findall(r"\b[a-z']+\b", text)
+    return words
+
+def main():
+    """
+    Mise en place du CLI :
+    -lit les arguments utilisateur
+    -appelle les fonctions correspondantes
+    -affiche les résultats
+    """
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--lexdiv", type=int)
+
+    args = parser.parse_args()
+
+    if args.lexdiv:
+        text = fetch_book(args.lexdiv)
+        result = lexical_diversity(args.lexdiv, text)
+        print(result)
+
+        
+#permet d'exécuter la fonction main() uniquement si le fichier est lancé directement
+if __name__ == "__main__":
+    main()
+
+
+nltk.download("stopwords", quiet=True)
+stop_word = set(stopwords.words("english"))
+# télécharge une liste de mot fréquemment utilisé qui n'apportent pas beaucoup de sens
+# Et les récupères en anglais dans un set pour rechercher plus rapidement 
+
+def split_into_sections(text, n_sections=4):
+    """
+    Sépare le texte en plusieurs section de même taille, on va d'abord chercher les chapitres,
+    sinon on coupe par blocs.
+    """
+
+    # découpage par chapitre
+
+    chapters = re.split(r'\bCHAPTER\b[\s\w]+\n', text, flags=re.IGNORECASE)
+    chapters = [c.strip() for c in chapters if len(c.strip()) > 200]
+
+    if len(chapters) >= 2:
+        return chapters
+    
+    words

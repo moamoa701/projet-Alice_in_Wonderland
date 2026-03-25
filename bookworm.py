@@ -139,9 +139,9 @@ def extract_entities(book_id, text):
 
     print("Chargement de spaCy en cours...")
     
-    #chargement de l'ia small spacy
+    #chargement de l'ia small spacy + desactivation des truc inutiles 
     try:
-        nlp = spacy.load("en_core_web_sm")
+        nlp = spacy.load("en_core_web_sm", disable=["tagger", "parser", "lemmatizer"])
 
     #gestion des erreurs
     except OSError:
@@ -153,8 +153,8 @@ def extract_entities(book_id, text):
 
     print("Analyse du texte...")
 
-    #traite par morceaux de 100 000 caractères et le stock dans docs
-    docs = list(nlp.pipe([text[i:i+100000] for i in range(0, len(text), 100000)]))
+    #traite par morceaux de 50 000 caractères et le stock dans docs
+    docs = list(nlp.pipe([text[i:i+50000] for i in range(0, len(text), 50000)]))
 
     
     #création de compteur

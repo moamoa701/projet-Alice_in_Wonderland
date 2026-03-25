@@ -15,6 +15,11 @@ from nltk.corpus import stopwords
 
 BASE_URL = "https://www.gutenberg.org/files/{id}/{id}-0.txt"
 
+nltk.download("stopwords", quiet=True)
+STOP_WORDS = set(stopwords.words("english"))
+# télécharge une liste de mot fréquemment utilisé qui n'apportent pas beaucoup de sens
+# Et les récupères en anglais dans un set pour rechercher plus rapidement
+
 
 def download_book(book_id):
     url = BASE_URL.format(id=book_id)
@@ -120,35 +125,6 @@ def tokenize(text):
     words = re.findall(r"\b[a-z']+\b", text)
     return words
 
-def main():
-    """
-    Mise en place du CLI :
-    -lit les arguments utilisateur
-    -appelle les fonctions correspondantes
-    -affiche les résultats
-    """
-
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument("--lexdiv", type=int)
-
-    args = parser.parse_args()
-
-    if args.lexdiv:
-        text = fetch_book(args.lexdiv)
-        result = lexical_diversity(args.lexdiv, text)
-        print(result)
-
-        
-#permet d'exécuter la fonction main() uniquement si le fichier est lancé directement
-if __name__ == "__main__":
-    main()
-
-
-nltk.download("stopwords", quiet=True)
-stop_word = set(stopwords.words("english"))
-# télécharge une liste de mot fréquemment utilisé qui n'apportent pas beaucoup de sens
-# Et les récupères en anglais dans un set pour rechercher plus rapidement 
 
 def split_into_sections(text, n_sections=4):
     """
@@ -164,4 +140,83 @@ def split_into_sections(text, n_sections=4):
     if len(chapters) >= 2:
         return chapters
     
-    words
+    #découpage en blocs de même taille
+    words = text.split()
+    block_size = max(1, len(words) // n_sections)
+    return [" ".join(words[i * block_size:(i + 1) * block_size])
+            for i in range(n_sections)]
+
+
+def topic_modeling(book_id, text, n_topics=None, n_top_words=10):
+    """
+    On utilise LDA pour extraire les topics du livre par section.
+    """
+
+    cached = load_cache("topics", book_id)
+    if cached:
+        return {int(k): v for k, v in cached.items()}
+
+    sections = split_into_sections(text)
+    n_topics = n_topics or len(sections)
+
+    vectorizer = CountVectorizer(
+        stop_words=list(STOP_WORDS),
+        max_features=2000,
+        min_df=2,
+        token_pattern=r"\b[a-z]{3,}\b" # mot en 3 lettres min
+    )
+
+    try:
+        dtm = vectorizer.fit_transform(sections)
+    except ValueError:
+        print(f"Erreur: Le corpus est trop petit pour le topic modeling (livre {book_id})")
+        return {}
+    
+
+    lda = LatentDirichletAllocation(n_components=n_topics, random_state=42, max_iter=15)
+    lda.fit(dtm)
+
+    feature_names = vectorizer.get_feature_names_out()
+    result = {}
+
+    for topic_idx, topic in enumerate(lda.components_, start=1):
+        top_indices = topic.argsort()[-n_top_words:][::-1]
+        result[topic_idx] = [feature_names[i] for i in top_indices]
+
+    save_cache("topics", book_id, result)
+    return result
+
+
+def main():
+    """
+    Mise en place du CLI :
+    -lit les arguments utilisateur
+    -appelle les fonctions correspondantes
+    -affiche les résultats
+    """
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--lexdiv", type=int, metavar="ID", help="Lexical diversity metrics for a book")
+    parser.add_argument("--topics", type=int, metavar="ID",help="Topic modeling (top 10 per section)")
+
+
+    args = parser.parse_args()
+
+    if args.lexdiv:
+        text = fetch_book(args.lexdiv)
+        if text:
+            result = lexical_diversity(args.lexdiv, text)
+            print(result)
+    elif args.topics:
+        text = fetch_book(args.topics)
+        if text:
+            result = topic_modeling(args.topics, text)
+            for topic_id, words in result.items():
+                print(f"{topic_id}: {words}")
+        
+#permet d'exécuter la fonction main() uniquement si le fichier est lancé directement
+if __name__ == "__main__":
+    main()
+
+ 

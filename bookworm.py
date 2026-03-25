@@ -5,12 +5,21 @@ import argparse
 import spacy
 from collections import Counter, defaultdict
 from cache_manager import load_cache, save_cache
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.decomposition import LatentDirichletAllocation
+import nltk
+from nltk.corpus import stopwords
 
 
 #url = "https://www.gutenberg.org/"
 #response = requests.get(url)
 
 BASE_URL = "https://www.gutenberg.org/files/{id}/{id}-0.txt"
+
+nltk.download("stopwords", quiet=True)
+STOP_WORDS = set(stopwords.words("english"))
+# télécharge une liste de mot fréquemment utilisé qui n'apportent pas beaucoup de sens
+# Et les récupères en anglais dans un set pour rechercher plus rapidement
 
 
 def download_book(book_id):
@@ -82,20 +91,10 @@ def fetch_book(book_id):
 
         return None
 
-def main():
-    """
-    Mise en place du CLI :
-    -lit les arguments utilisateur
-    -appelle les fonctions correspondantes
-    -affiche les résultats
-    """
-
-
 def tokenize(text):
     text = text.lower()
     words = re.findall(r"\b[a-z']+\b", text)
     return words
-
 
 # Lexical diversity
 
@@ -127,54 +126,65 @@ def lexical_diversity(book_id, text):
     save_cache("lexdiv", book_id, result)
     return result
 
+def split_into_sections(text, n_sections=4):
+    """
+    Sépare le texte en plusieurs section de même taille, on va d'abord chercher les chapitres,
+    sinon on coupe par blocs.
+    """
 
-def summarize_book(book_id, text, n_sentences=5):
+    # découpage par chapitre
+
+    chapters = re.split(r'\bCHAPTER\b[\s\w]+\n', text, flags=re.IGNORECASE)
+    chapters = [c.strip() for c in chapters if len(c.strip()) > 200]
+
+    if len(chapters) >= 2:
+        return chapters
+    
+    #découpage en blocs de même taille
+    words = text.split()
+    block_size = max(1, len(words) // n_sections)
+    return [" ".join(words[i * block_size:(i + 1) * block_size])
+            for i in range(n_sections)]
+
+
+def topic_modeling(book_id, text, n_topics=None, n_top_words=10):
     """
-    Returns a short extractive summary of the book.
-    Uses sentence scoring based on word frequency.
+    On utilise LDA pour extraire les topics du livre par section.
     """
-    cached = load_cache("summary", book_id)
+
+    cached = load_cache("topics", book_id)
     if cached:
-        return cached
-    #Sentence segmentation
-    sentences = re.split(r'(?<=[.!?]) +', text)
+        return {int(k): v for k, v in cached.items()}
 
-    #Avoid extremely long texts (performance)
-    sentences = sentences[:2000]
+    sections = split_into_sections(text)
+    n_topics = n_topics or len(sections)
 
-    words = tokenize(text)
+    vectorizer = CountVectorizer(
+        stop_words=list(STOP_WORDS),
+        max_features=2000,
+        min_df=2,
+        token_pattern=r"\b[a-z]{3,}\b" # mot en 3 lettres min
+    )
 
-    #Compute word frequencies
-    freq = Counter(words)
+    try:
+        dtm = vectorizer.fit_transform(sections)
+    except ValueError:
+        print(f"Erreur: Le corpus est trop petit pour le topic modeling (livre {book_id})")
+        return {}
+    
 
-    # Normalize frequencies
-    max_freq = max(freq.values()) if freq else 1
-    for word in freq:
-        freq[word] /= max_freq
+    lda = LatentDirichletAllocation(n_components=n_topics, random_state=42, max_iter=15)
+    lda.fit(dtm)
 
-    #Score sentences
-    sentence_scores = defaultdict(float)
+    feature_names = vectorizer.get_feature_names_out()
+    result = {}
 
-    for sent in sentences:
-        sent_words = tokenize(sent)
-        # Ignore very short or very long sentences
-        if len(sent_words) < 5 or len(sent_words) > 40:
-            continue
-        for word in sent_words:
-            if word in freq:
-                sentence_scores[sent] += freq[word]
+    for topic_idx, topic in enumerate(lda.components_, start=1):
+        top_indices = topic.argsort()[-n_top_words:][::-1]
+        result[topic_idx] = [feature_names[i] for i in top_indices]
 
-    #Select top sentences
-    best_sentences = sorted(sentence_scores, key=sentence_scores.get, reverse=True)[:n_sentences]
-
-    # Keep original order
-    best_sentences = sorted(best_sentences, key=lambda s: sentences.index(s))
-
-    summary = " ".join(best_sentences)
-
-    save_cache("summary", book_id, summary)
-
-    return summary
+    save_cache("topics", book_id, result)
+    return result
 
 
 def extract_entities(book_id, text):
@@ -238,6 +248,56 @@ def extract_entities(book_id, text):
 
     return resultats
 
+
+def summarize_book(book_id, text, n_sentences=5):
+    """
+    Returns a short extractive summary of the book.
+    Uses sentence scoring based on word frequency.
+    """
+    cached = load_cache("summary", book_id)
+    if cached:
+        return cached
+    #Sentence segmentation
+    sentences = re.split(r'(?<=[.!?]) +', text)
+
+    #Avoid extremely long texts (performance)
+    sentences = sentences[:2000]
+
+    words = tokenize(text)
+
+    #Compute word frequencies
+    freq = Counter(words)
+
+    # Normalize frequencies
+    max_freq = max(freq.values()) if freq else 1
+    for word in freq:
+        freq[word] /= max_freq
+
+    #Score sentences
+    sentence_scores = defaultdict(float)
+
+    for sent in sentences:
+        sent_words = tokenize(sent)
+        # Ignore very short or very long sentences
+        if len(sent_words) < 5 or len(sent_words) > 40:
+            continue
+        for word in sent_words:
+            if word in freq:
+                sentence_scores[sent] += freq[word]
+
+    #Select top sentences
+    best_sentences = sorted(sentence_scores, key=sentence_scores.get, reverse=True)[:n_sentences]
+
+    # Keep original order
+    best_sentences = sorted(best_sentences, key=lambda s: sentences.index(s))
+
+    summary = " ".join(best_sentences)
+
+    save_cache("summary", book_id, summary)
+
+    return summary
+
+
 def main():
     """
     Mise en place du CLI :
@@ -249,27 +309,32 @@ def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--lexdiv", type=int)
-    parser.add_argument("--entities", type=str)
+    parser.add_argument("--entities", type=int)
+    parser.add_argument("--topics", type=int)
+    parser.add_argument("--summary", type=int)
 
     args = parser.parse_args()
 
     if args.lexdiv:
-        book_id = args.lexdiv
-        text = fetch_book(book_id)
+        text = fetch_book(args.lexdiv)
         if text:
-            stats = lexical_diversity(book_id, text)
-            print(f"\n Résultat: {book_id} :")
-        print(stats)
-
-    if args.entities:   
-        book_id = args.entities
-        text = fetch_book(book_id)
+            print(lexical_diversity(args.lexdiv, text))
+    if args.topics:
+        text = fetch_book(args.topics)
         if text:
-            entities_dict = extract_entities(book_id, text)
-            print(f"\n entités trouvées pour le livre: {book_id} :") 
-            print(entities_dict)
+            result = topic_modeling(args.topics, text)
+            for topic_id, words in result.items():
+                print(f"{topic_id}: {words}")
+    if args.entities:
+        text = fetch_book(args.entities)
+        if text:
+            print(extract_entities(args.entities, text))
+    if args.summary:
+        text = fetch_book(args.summary)
+        if text:
+            print(summarize_book(args.summary, text))
 
-        
+
 #permet d'exécuter la fonction main() uniquement si le fichier est lancé directement
 if __name__ == "__main__":
     main()

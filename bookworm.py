@@ -156,7 +156,6 @@ def summarize_book(book_id, text, n_sentences=5):
     #Avoid extremely long texts (performance)
     sentences = sentences[:2000]
 
-    #Tokenization
     words = tokenize(text)
 
     #Compute word frequencies

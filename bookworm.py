@@ -153,26 +153,22 @@ def extract_entities(book_id, text):
 
     print("Analyse du texte...")
 
-    #stockage de l'analyze
-    doc = nlp(text)
+    #traite par morceaux de 100 000 caractères et le stock dans docs
+    docs = list(nlp.pipe([text[i:i+100000] for i in range(0, len(text), 100000)]))
+
     
     #création de compteur
     compteur_personnages = Counter()
     compteur_lieux = Counter()
     
-    #parcours des entité trouvé de spacy
-    for ent in doc.ents:
-
-        #supprime les retours a la ligne et les espaces
-        mot_propre = ent.text.replace('\n', ' ').strip()
-        
-        #triage des mots par l'ia
-        #si spacy identifie une personne, on incrémente son compteur
-        if ent.label_ == "PERSON":
-            compteur_personnages[mot_propre] += 1
-        #si spacy identifie un pays/ville, localisation ou des infrastructures on incrémente le compteur lieux  
-        elif ent.label_ in ["GPE", "LOC", "FAC"]:
-            compteur_lieux[mot_propre] += 1
+    #parcours les entité trouvé de spacy
+    for doc in docs:
+        for ent in doc.ents:
+            mot_propre = ent.text.replace('\n', ' ').strip()
+            if ent.label_ == "PERSON":
+                compteur_personnages[mot_propre] += 1
+            elif ent.label_ in ["GPE", "LOC", "FAC"]:
+                compteur_lieux[mot_propre] += 1
 
     #stock les 20 mots les plus fréquents  dans characters et locations
     characters = [mot for mot, freq in compteur_personnages.most_common(20)]

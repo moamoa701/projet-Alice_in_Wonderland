@@ -2,6 +2,7 @@ import requests
 import re
 import math
 import argparse
+import spacy
 from collections import Counter, defaultdict
 from cache_manager import load_cache, save_cache
 
@@ -37,7 +38,7 @@ def clean_gutenberg_text(text):
     if start == -1 or end == -1:
         return text
 
-    #on garde uniquement le texte entre lindex start et lindex end
+    #on garde uniquement le texte entre l'index start et l'index end
     #on crée une liste ou chaque élément est une ligne du livre
     #on retire la balise (ligne 0)    
     clean_text = text[start:end].splitlines()[1:]
@@ -89,21 +90,6 @@ def main():
     -affiche les résultats
     """
 
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument("--lexdiv", type=int)
-
-    args = parser.parse_args()
-
-    if args.lexdiv:
-        text = fetch_book(args.lexdiv)
-        print(text)
-
-        
-#permet d'exécuter la fonction main() uniquement si le fichier est lancé directement
-if __name__ == "__main__":
-    main()
-    return "\n".join(clean_text)
 
 def tokenize(text):
     text = text.lower()
@@ -189,3 +175,105 @@ def summarize_book(book_id, text, n_sentences=5):
     save_cache("summary", book_id, summary)
 
     return summary
+
+
+def extract_entities(book_id, text):
+    """
+    Recupere les noms de personnages et lieux du livre
+    
+    """
+    #id en string pour pouvoir appeler
+    book_id = str(book_id)
+
+
+    cached = load_cache("entities", book_id)
+    if cached:
+        return cached
+
+    print("Chargement de spaCy en cours...")
+    
+    #chargement de l'ia small spacy
+    try:
+        nlp = spacy.load("en_core_web_sm")
+
+    #gestion des erreurs
+    except OSError:
+        print("Erreur : Modele pas trouvé ")
+        return {"characters": [], "locations": []}
+
+    #ajoute a spacy un rajout de 100k caractere en + de la longueur du texte
+    nlp.max_length = len(text) + 100000
+
+    print("Analyse du texte...")
+
+    #stockage de l'analyze
+    doc = nlp(text)
+    
+    #création de compteur
+    compteur_personnages = Counter()
+    compteur_lieux = Counter()
+    
+    #parcours des entité trouvé de spacy
+    for ent in doc.ents:
+
+        #supprime les retours a la ligne et les espaces
+        mot_propre = ent.text.replace('\n', ' ').strip()
+        
+        #triage des mots par l'ia
+        #si spacy identifie une personne, on incrémente son compteur
+        if ent.label_ == "PERSON":
+            compteur_personnages[mot_propre] += 1
+        #si spacy identifie un pays/ville, localisation ou des infrastructures on incrémente le compteur lieux  
+        elif ent.label_ in ["GPE", "LOC", "FAC"]:
+            compteur_lieux[mot_propre] += 1
+
+    #stock les 20 mots les plus fréquents  dans characters et locations
+    characters = [mot for mot, freq in compteur_personnages.most_common(20)]
+    locations = [mot for mot, freq in compteur_lieux.most_common(20)]
+
+    #stock les mots les plus fréquent dans le dictionnaire resultats
+    resultats = {
+        "characters": characters,
+        "locations": locations 
+    }
+
+    #Sauvegarde dans le cache
+    save_cache("entities", book_id, resultats)
+
+    return resultats
+
+def main():
+    """
+    Mise en place du CLI :
+    -lit les arguments utilisateur
+    -appelle les fonctions correspondantes
+    -affiche les résultats
+    """
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--lexdiv", type=int)
+    parser.add_argument("--entities", type=str)
+
+    args = parser.parse_args()
+
+    if args.lexdiv:
+        book_id = args.lexdiv
+        text = fetch_book(book_id)
+        if text:
+            stats = lexical_diversity(book_id, text)
+            print(f"\n Résultat: {book_id} :")
+        print(stats)
+
+    if args.entities:   
+        book_id = args.entities
+        text = fetch_book(book_id)
+        if text:
+            entities_dict = extract_entities(book_id, text)
+            print(f"\n entités trouvées pour le livre: {book_id} :") 
+            print(entities_dict)
+
+        
+#permet d'exécuter la fonction main() uniquement si le fichier est lancé directement
+if __name__ == "__main__":
+    main()

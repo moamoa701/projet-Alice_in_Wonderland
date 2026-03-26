@@ -38,6 +38,15 @@ async function fetchCard() {
                     ? data.entities.locations.map(l => `<span class="tag">${l}</span>`).join("")
                     : "<em>Aucun lieu trouvé</em>";
 
+                // livres similaires    
+                const similarDiv = document.getElementById("similar");
+                if (data.similar && data.similar.length > 0) {
+                similarDiv.innerHTML = data.similar.map(title => `<span class="tag">${title}</span>`).join("");
+                } else {
+                similarDiv.innerHTML = "<em>Aucun livre similaire dans la collection</em>";
+                }
+                
+
                 //résumé
                 document.getElementById("summary").textContent = data.summary || "Pas de résumé disponible.";
 

@@ -2,8 +2,6 @@
 
 This document presents the main Natural Language Processing (NLP) pipelines implemented in `bookworm.py`.
 
----
-
 # 1. Lexical Diversity Pipeline
 
 Evaluates vocabulary richness and writing style.
@@ -86,7 +84,7 @@ flowchart TD
     K --> L[Return summary string]
 ```
 
-# 🔗 5. Book Similarity Pipeline
+# 5. Book Similarity Pipeline
 
 Finds similar books using TF-IDF and cosine similarity.
 
@@ -103,7 +101,7 @@ flowchart TD
     I --> J[Return titles list]
 ```
 
-# 🧾 6. Book Card Pipeline
+# 6. Book Card Pipeline
 
 Aggregates all features into a structured metadata object.
 

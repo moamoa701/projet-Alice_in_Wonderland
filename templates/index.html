@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Bookworm</title>
+    <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+
+    <h1>Bookworm</h1>
+
+    <div class="search">
+        <input type="number" id="bookId" placeholder="ID du livre" min="1">
+        <button onclick="fetchCard()">Voir la fiche</button>
+    </div>
+
+    <p id="loading">Analyse en cours...</p>
+    <p id="error">Livre introuvable</p>
+
+    <div class="card" id="card">
+        <h2 id="title"></h2>
+
+        <div class="section">
+            <h3>Informations</h3>
+            <p><strong>Auteur :</strong> <span id="authors"></span></p>
+            <p><strong>Catégorie :</strong> <span id="bookshelves"></span></p>
+        </div>
+
+        <div class="section">
+            <h3>Diversité lexicale</h3>
+            <p>Tokens : <span id="tok"></span></p>
+            <p>Types : <span id="typ"></span></p>
+            <p>TTR : <span id="ttr"></span></p>
+            <p>Hapax : <span id="hap"></span></p>
+        </div>
+
+        <div class="section">
+            <h3>Personnages et lieux</h3>
+            <p><strong>Personnages :</strong></p>
+            <div id="characters"></div>
+            
+            <p><strong>Lieux :</strong></p>
+            <div id="locations"></div>
+        </div>
+
+        <div class="section">
+            <h3>Résumé</h3>
+            <p id="summary"></p>
+        </div>
+    </div>
+
+<script src="../static/app.js"></script>
+</body>
+</html>

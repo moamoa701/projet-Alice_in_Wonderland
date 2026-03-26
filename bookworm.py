@@ -365,7 +365,7 @@ def generate_card(book_id):
         "topics":   topic_modeling(book_id, text),
         "entities": extract_entities(book_id, text),
         "summary":  summarize_book(book_id, text),
-        "similar":  [],  #Mattis
+        "similar":  
     }
 
     #sauvegarde dans le cache 

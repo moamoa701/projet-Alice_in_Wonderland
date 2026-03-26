@@ -3,3 +3,4 @@ __pycache__/
 *.txt
 monenv/
 *.pyc
+venv/s

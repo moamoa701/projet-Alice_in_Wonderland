@@ -15,7 +15,7 @@ async function fetchCard() {
 
                 const data = await response.json();
 
-                document.getElementById("title").textContent = data.title || "Sans titre";
+               
 
                 document.getElementById("authors").textContent = data.info?.authors || "Inconnu";
                 document.getElementById("bookshelves").textContent = data.info?.bookshelves || "Non classé";

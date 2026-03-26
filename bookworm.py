@@ -9,6 +9,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.decomposition import LatentDirichletAllocation
 import nltk
 from nltk.corpus import stopwords
+import json
 
 
 #url = "https://www.gutenberg.org/"
@@ -26,12 +27,13 @@ def download_book(book_id):
     url = BASE_URL.format(id=book_id)
     response = requests.get(url)
 
+    #gestion des erreurs
     if response.status_code != 200:
         raise Exception(f"Error downloading book {book_id}")
 
     return response.text
 
-# Cleans the downloaded text
+#Nettoyage du texte téléchargé
 def clean_gutenberg_text(text):
     """
     Permet de nettoyer le texte téléchargé en enlevant les textes inutiles (licence Gutenberg)
@@ -90,6 +92,49 @@ def fetch_book(book_id):
         print(f"Erreur : Impossible de trouver le livre avec l'ID {book_id}")
 
         return None
+
+
+        
+
+def fetch_book_info(book_id):
+    """
+    Récupère les auteurs et les catégories des livres
+
+    """
+    #chargement du cache
+    cached = load_cache("info", book_id)
+
+    #verification de lexistance de l'info dans le cache
+    if cached:
+        return cached
+
+
+    url = f"https://gutendex.com/books/{book_id}"
+    response = requests.get(url)
+
+    #si la réponse est pas ok,on retourne unknown
+    if response.status_code != 200:
+        return {"id": str(book_id), "authors": "Unknown", "bookshelves": "Unknown"}
+
+    #conversion en json pour la manipulation
+    data = response.json()
+
+    #recupere les noms des auteurs 
+    authors = ", ".join(a["name"] for a in data.get("authors", []))
+
+    #recupere les catégories
+    bookshelves = ", ".join(data.get("bookshelves", []))
+
+    #on met les auteurs et les bookshelves dans result
+    result = {
+        "id": str(book_id),
+        "authors": authors or "Unknown",
+        "bookshelves": bookshelves or "Unknown"
+    }
+
+    #sauvegarde dans le cache 
+    save_cache("info", book_id, result)
+    return result
 
 def tokenize(text):
     text = text.lower()
@@ -298,6 +343,35 @@ def summarize_book(book_id, text, n_sentences=5):
     return summary
 
 
+def generate_card(book_id):
+    #chargement de card dans le cache 
+    cached = load_cache("card", book_id)
+    #si présent dans le cache alors retourne le cache 
+    if cached:
+        return cached
+
+    text = fetch_book(book_id)
+
+    #gestion erreurs
+    if not text:
+        print(f"Impossible de récupérer le livre {book_id}")
+        return None
+
+
+    #appelle de toutes les fonctions
+    card = {
+        "info":     fetch_book_info(book_id),
+        "lexdiv":   lexical_diversity(book_id, text),
+        "topics":   topic_modeling(book_id, text),
+        "entities": extract_entities(book_id, text),
+        "summary":  summarize_book(book_id, text),
+        "similar":  [],  #Mattis
+    }
+
+    #sauvegarde dans le cache 
+    save_cache("card", book_id, card)
+    return card
+
 def main():
     """
     Mise en place du CLI :
@@ -306,15 +380,21 @@ def main():
     -affiche les résultats
     """
 
+    #config du terminal
+    #lecteur des inputs
     parser = argparse.ArgumentParser()
 
+    #arguments
     parser.add_argument("--lexdiv", type=int)
     parser.add_argument("--entities", type=int)
     parser.add_argument("--topics", type=int)
     parser.add_argument("--summary", type=int)
+    parser.add_argument("--card", type=int)  
 
+    #stockage des args
     args = parser.parse_args()
 
+    #gestion des outputs selon ce que l'user entre
     if args.lexdiv:
         text = fetch_book(args.lexdiv)
         if text:
@@ -333,6 +413,11 @@ def main():
         text = fetch_book(args.summary)
         if text:
             print(summarize_book(args.summary, text))
+
+    if args.card:
+        card = generate_card(args.card)
+        if card:
+            print(json.dumps(card, indent=2, ensure_ascii=False))    
 
 
 #permet d'exécuter la fonction main() uniquement si le fichier est lancé directement

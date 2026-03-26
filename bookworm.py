@@ -10,7 +10,8 @@ from sklearn.decomposition import LatentDirichletAllocation
 import nltk
 from nltk.corpus import stopwords
 import json
-
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 #url = "https://www.gutenberg.org/"
 #response = requests.get(url)
@@ -342,6 +343,75 @@ def summarize_book(book_id, text, n_sentences=5):
 
     return summary
 
+BOOK_COLLECTION = {
+    11: "Alice's Adventures in Wonderland",
+    12: "Through the Looking-Glass",
+    16: "Peter Pan",
+    55: "The Wonderful Wizard of Oz",
+    113: "The Secret Garden",
+    120: "Treasure Island",
+    236: "The Jungle Book",
+    108: "The Return of Sherlock Holmes",
+    834: "The Memoirs of Sherlock Holmes",
+    863: "The Mysterious Affair at Styles",
+    1661: "The Adventures of Sherlock Holmes",
+    61262: "Poirot Investigates",
+    69087: "The Murder of Roger Ackroyd",
+    70114: "The Big Four",
+    35: "The Time Machine",
+    36: "The War of the Worlds",
+    84: "Frankenstein",
+    159: "The Island of Doctor Moreau",
+    164: "Twenty Thousand Leagues under the Sea",
+    345: "Dracula",
+    68283: "The Call of Cthulhu",
+}
+
+def book_similarity(book_id):
+    cached = load_cache("similar", book_id)
+    if cached:
+        return cached
+    
+    print("Téléchargement de la collection")
+    texts = []
+    ids = []
+
+    for bid in BOOK_COLLECTION:
+        text = fetch_book(bid)
+        if text:
+            texts.append(text)
+            ids.append(bid)
+    
+    if book_id not in ids:
+        print(f"Le livre {book_id} n'est pas dans la collection.")
+        return []
+
+    vectorizer = TfidfVectorizer(
+        stop_words=list(STOP_WORDS),
+        max_features=5000,
+        sublinear_tf=True,
+        token_pattern=r"\b[a-z]{3,}\b"
+    )
+
+    matrix = vectorizer.fit_transform(texts)
+
+    target_idx = ids.index(book_id)
+    similarities = cosine_similarity(matrix[target_idx], matrix).flatten()
+
+    # trier en ordre décroissant
+    ranked = sorted(
+        [(ids[i], similarities[i]) for i in range(len(ids)) if ids[i] != book_id],
+        key=lambda x: x[1],
+        reverse=True
+    )
+
+
+    result = [BOOK_COLLECTION[bid] for bid, _ in ranked[:5]]
+    save_cache("similar", book_id, result)
+    return result
+
+
+
 
 def generate_card(book_id):
     #chargement de card dans le cache 
@@ -372,6 +442,10 @@ def generate_card(book_id):
     save_cache("card", book_id, card)
     return card
 
+
+
+
+
 def main():
     """
     Mise en place du CLI :
@@ -388,8 +462,9 @@ def main():
     parser.add_argument("--lexdiv", type=int)
     parser.add_argument("--entities", type=int)
     parser.add_argument("--topics", type=int)
-    parser.add_argument("--summary", type=int)
-    parser.add_argument("--card", type=int)  
+    parser.add_argument("--summary", type=int)  
+    parser.add_argument("--similar", type=int)
+    parser.add_argument("--card", type=int)
 
     #stockage des args
     args = parser.parse_args()
@@ -413,6 +488,10 @@ def main():
         text = fetch_book(args.summary)
         if text:
             print(summarize_book(args.summary, text))
+    if args.similar:
+        text = fetch_book(args.similar)
+        if text:
+            print(book_similarity(args.similar))
 
     if args.card:
         card = generate_card(args.card)

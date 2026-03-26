@@ -85,7 +85,45 @@ def fetch_book(book_id):
 
         
 
+def fetch_book_info(book_id):
+    """
+    Récupère les auteurs et les bookshelves des livres
 
+    """
+    #chargement du cache
+    cached = load_cache("info", book_id)
+
+    #verification de lexistance de l'info dans le cache
+    if cached:
+        return cached
+
+
+    url = f"https://gutendex.com/books/{book_id}"
+    response = requests.get(url)
+
+    #si la réponse est pas ok,on retourne unknown
+    if response.status_code != 200:
+        return {"id": str(book_id), "authors": "Unknown", "bookshelves": "Unknown"}
+
+    #conversion en json pour la manipulation
+    data = response.json()
+
+    #recupere les noms des auteurs 
+    authors = ", ".join(a["name"] for a in data.get("authors", []))
+
+    #recupere les bookshleves
+    bookshelves = ", ".join(data.get("bookshelves", []))
+
+    #on met les auteurs et les bookshelves dans result
+    result = {
+        "id": str(book_id),
+        "authors": authors or "Unknown",
+        "bookshelves": bookshelves or "Unknown"
+    }
+
+    #sauvegarde dans le cache 
+    save_cache("info", book_id, result)
+    return result
 
 def tokenize(text):
     text = text.lower()

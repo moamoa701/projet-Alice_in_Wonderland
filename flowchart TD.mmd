@@ -1,0 +1,15 @@
+flowchart TD
+    A[Input: book_id] --> B[Fetch book text]
+    B --> C[Fetch metadata authors, shelves]
+    B --> D[Lexical diversity]
+    B --> E[Topic modeling]
+    B --> F[NER extraction]
+    B --> G[Summarization]
+    B --> H[Similarity computation]
+    C --> I[Assemble card]
+    D --> I
+    E --> I
+    F --> I
+    G --> I
+    H --> I
+    I --> J[Return structured dictionary]

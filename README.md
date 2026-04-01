@@ -21,7 +21,7 @@ Le programme propose plusieurs commandes d'analyse sur une sélection de livres 
 
 1. **Cloner le dépôt :**
    ```bash
-   git clone git@github.com:TonPseudo/Projet-Bookworm.git
+   git clone git@github.com:moamoa701/projet-Alice_in_Wonderland.git
    cd Projet-Bookworm
 
 2. **Générer la fiche de l'id 11**
